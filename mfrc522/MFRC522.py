@@ -128,10 +128,10 @@ class MFRC522:
 
     def __init__(self, bus=0, device=0, spd=1000000, pin_mode=GPIO.BOARD, pin_rst=-1, log_verbose=False):
         self.logger = logging.getLogger(self.__class__.__name__)
-        if log_verbose:
-            self.logger.setLevel(logging.DEBUG)
-        else:
-            self.logger.setLevel(logging.INFO)
+        # Don't change the logger's level based on log_verbose
+        # This ensures that ERROR messages are always logged at ERROR level
+        # The log_verbose flag will be used by individual log statements
+        self.log_verbose = log_verbose
 
         self.logger.info('Setting up SPI')
         self.spi = spidev.SpiDev()
@@ -197,10 +197,11 @@ class MFRC522:
         n = 0
 
         # Log command as hex value
-        self.logger.debug({
-            'action': 'MFRC522_ToCard_start',
-            'command': f'0x{command:02X}'  # Log command as hex value
-        })
+        if self.log_verbose:
+            self.logger.debug({
+                'action': 'MFRC522_ToCard_start',
+                'command': f'0x{command:02X}'  # Log command as hex value
+            })
 
         if command == self.PCD_AUTHENT:
             irqEn = 0x12
@@ -258,12 +259,13 @@ class MFRC522:
                 status = self.MI_ERR
 
         # Log status and command as hex values
-        self.logger.debug({
-            'action': 'MFRC522_ToCard_complete',
-            'command': f'0x{command:02X}',  # Log command as hex value
-            'status': f'0x{status:02X}',    # Log status as hex value
-            'backLen': backLen
-        })
+        if self.log_verbose:
+            self.logger.debug({
+                'action': 'MFRC522_ToCard_complete',
+                'command': f'0x{command:02X}',  # Log command as hex value
+                'status': f'0x{status:02X}',    # Log status as hex value
+                'backLen': backLen
+            })
 
         return (status, backData, backLen)
 
@@ -271,10 +273,11 @@ class MFRC522:
         TagType = []
 
         # Log reqMode as hex value
-        self.logger.debug({
-            'action': 'MFRC522_Request_start',
-            'reqMode': f'0x{reqMode:02X}'  # Log reqMode as hex value
-        })
+        if self.log_verbose:
+            self.logger.debug({
+                'action': 'MFRC522_Request_start',
+                'reqMode': f'0x{reqMode:02X}'  # Log reqMode as hex value
+            })
 
         self.Write_MFRC522(self.BitFramingReg, 0x07)
 
@@ -286,11 +289,12 @@ class MFRC522:
             status = self.MI_ERR
 
         # Log status and reqMode as hex values
-        self.logger.debug({
-            'action': 'MFRC522_Request_complete',
-            'reqMode': f'0x{reqMode:02X}',  # Log reqMode as hex value
-            'status': f'0x{status:02X}'     # Log status as hex value
-        })
+        if self.log_verbose:
+            self.logger.debug({
+                'action': 'MFRC522_Request_complete',
+                'reqMode': f'0x{reqMode:02X}',  # Log reqMode as hex value
+                'status': f'0x{status:02X}'     # Log status as hex value
+            })
 
         return (status, backBits)
 
@@ -299,10 +303,11 @@ class MFRC522:
         serNum = []
 
         # Log start of anticoll
-        self.logger.debug({
-            'action': 'MFRC522_Anticoll_start',
-            'command': f'0x{self.PCD_TRANSCEIVE:02X}'  # Log command as hex value
-        })
+        if self.log_verbose:
+            self.logger.debug({
+                'action': 'MFRC522_Anticoll_start',
+                'command': f'0x{self.PCD_TRANSCEIVE:02X}'  # Log command as hex value
+            })
 
         self.Write_MFRC522(self.BitFramingReg, 0x00)
 
@@ -323,10 +328,11 @@ class MFRC522:
                 status = self.MI_ERR
 
         # Log status as hex value
-        self.logger.debug({
-            'action': 'MFRC522_Anticoll_complete',
-            'status': f'0x{status:02X}'  # Log status as hex value
-        })
+        if self.log_verbose:
+            self.logger.debug({
+                'action': 'MFRC522_Anticoll_complete',
+                'status': f'0x{status:02X}'  # Log status as hex value
+            })
 
         return (status, backData)
 
@@ -355,11 +361,12 @@ class MFRC522:
         buf.append(0x70)
 
         # Log start of select tag
-        self.logger.debug({
-            'action': 'MFRC522_SelectTag_start',
-            'command': f'0x{self.PCD_TRANSCEIVE:02X}',  # Log command as hex value
-            'select_tag': f'0x{self.PICC_SElECTTAG:02X}'  # Log select tag as hex value
-        })
+        if self.log_verbose:
+            self.logger.debug({
+                'action': 'MFRC522_SelectTag_start',
+                'command': f'0x{self.PCD_TRANSCEIVE:02X}',  # Log command as hex value
+                'select_tag': f'0x{self.PICC_SElECTTAG:02X}'  # Log select tag as hex value
+            })
 
         for i in range(5):
             buf.append(serNum[i])
@@ -372,14 +379,15 @@ class MFRC522:
 
         # Log status as hex value
         if (status == self.MI_OK) and (backLen == 0x18):
-            self.logger.debug({
-                'action': 'MFRC522_SelectTag_complete',
-                'status': f'0x{status:02X}',  # Log status as hex value
-                'size': backData[0]
-            })
+            if self.log_verbose:
+                self.logger.debug({
+                    'action': 'MFRC522_SelectTag_complete',
+                    'status': f'0x{status:02X}',  # Log status as hex value
+                    'size': backData[0]
+                })
             return status, backData[0]
         else:
-            self.logger.debug({
+            self.logger.error({
                 'action': 'MFRC522_SelectTag_failed',
                 'status': f'0x{status:02X}'  # Log status as hex value
             })
@@ -389,12 +397,13 @@ class MFRC522:
         buff = []
 
         # Log start of auth with authMode as hex value
-        self.logger.debug({
-            'action': 'MFRC522_Auth_start',
-            'authMode': f'0x{authMode:02X}',  # Log authMode as hex value
-            'blockAddr': BlockAddr,
-            'command': f'0x{self.PCD_AUTHENT:02X}'  # Log command as hex value
-        })
+        if self.log_verbose:
+            self.logger.debug({
+                'action': 'MFRC522_Auth_start',
+                'authMode': f'0x{authMode:02X}',  # Log authMode as hex value
+                'blockAddr': BlockAddr,
+                'command': f'0x{self.PCD_AUTHENT:02X}'  # Log command as hex value
+            })
 
         # First byte should be the authMode (A or B)
         buff.append(authMode)
@@ -430,10 +439,11 @@ class MFRC522:
             })
 
         # Log completion with status as hex value
-        self.logger.debug({
-            'action': 'MFRC522_Auth_complete',
-            'status': f'0x{status:02X}'  # Log status as hex value
-        })
+        if self.log_verbose:
+            self.logger.debug({
+                'action': 'MFRC522_Auth_complete',
+                'status': f'0x{status:02X}'  # Log status as hex value
+            })
 
         # Return the status
         return status
@@ -450,11 +460,12 @@ class MFRC522:
         recvData.append(pOut[1])
         
         # Log start of read operation
-        self.logger.debug({
-            'action': 'MFRC522_Read_start',
-            'blockAddr': blockAddr,
-            'command': f'0x{self.PCD_TRANSCEIVE:02X}'  # Log command as hex value
-        })
+        if self.log_verbose:
+            self.logger.debug({
+                'action': 'MFRC522_Read_start',
+                'blockAddr': blockAddr,
+                'command': f'0x{self.PCD_TRANSCEIVE:02X}'  # Log command as hex value
+            })
         
         (status, backData, backLen) = self.MFRC522_ToCard(self.PCD_TRANSCEIVE,
                                                           recvData)
@@ -466,19 +477,21 @@ class MFRC522:
             })
 
         # Log completion with status as hex value
-        self.logger.debug({
-            'action': 'MFRC522_Read_complete',
-            'status': f'0x{status:02X}',  # Log status as hex value
-            'blockAddr': blockAddr,
-            'success': status == self.MI_OK
-        })
+        if self.log_verbose:
+            self.logger.debug({
+                'action': 'MFRC522_Read_complete',
+                'status': f'0x{status:02X}',  # Log status as hex value
+                'blockAddr': blockAddr,
+                'success': status == self.MI_OK
+            })
         
         if len(backData) == 16:
-            self.logger.debug({
-                'action': 'MFRC522_Read_data',
-                'blockAddr': blockAddr,
-                'data': str(backData)
-            })
+            if self.log_verbose:
+                self.logger.debug({
+                    'action': 'MFRC522_Read_data',
+                    'blockAddr': blockAddr,
+                    'data': str(backData)
+                })
             return backData
         else:
             return None
@@ -489,12 +502,13 @@ class MFRC522:
         buff.append(blockAddr)
         
         # Log start of write operation
-        self.logger.debug({
-            'action': 'MFRC522_Write_start',
-            'blockAddr': blockAddr,
-            'command': f'0x{self.PCD_TRANSCEIVE:02X}',  # Log command as hex value
-            'write_command': f'0x{self.PICC_WRITE:02X}'  # Log write command as hex value
-        })
+        if self.log_verbose:
+            self.logger.debug({
+                'action': 'MFRC522_Write_start',
+                'blockAddr': blockAddr,
+                'command': f'0x{self.PCD_TRANSCEIVE:02X}',  # Log command as hex value
+                'write_command': f'0x{self.PICC_WRITE:02X}'  # Log write command as hex value
+            })
         
         crc = self.CalulateCRC(buff)
         buff.append(crc[0])
@@ -504,19 +518,20 @@ class MFRC522:
         if not (status == self.MI_OK) or not (backLen == 4) or not (
                 (backData[0] & 0x0F) == 0x0A):
             status = self.MI_ERR
-            self.logger.debug({
+            self.logger.error({
                 'action': 'MFRC522_Write_first_phase_failed',
                 'status': f'0x{status:02X}',  # Log status as hex value
                 'backLen': backLen,
                 'backData': str(backData) if backData else "None"
             })
 
-        self.logger.debug({
-            'action': 'MFRC522_Write_first_phase',
-            'backLen': backLen,
-            'backData_check': f'0x{backData[0] & 0x0F:02X}',  # Log as hex value
-            'status': f'0x{status:02X}'  # Log status as hex value
-        })
+        if self.log_verbose:
+            self.logger.debug({
+                'action': 'MFRC522_Write_first_phase',
+                'backLen': backLen,
+                'backData_check': f'0x{backData[0] & 0x0F:02X}',  # Log as hex value
+                'status': f'0x{status:02X}'  # Log status as hex value
+            })
         
         if status == self.MI_OK:
             buf = []
@@ -537,12 +552,13 @@ class MFRC522:
                     'backData': str(backData) if backData else "None"
                 })
             if status == self.MI_OK:
-                self.logger.debug({
-                    'action': 'MFRC522_Write_complete',
-                    'status': f'0x{status:02X}',  # Log status as hex value
-                    'blockAddr': blockAddr,
-                    'success': True
-                })
+                if self.log_verbose:
+                    self.logger.debug({
+                        'action': 'MFRC522_Write_complete',
+                        'status': f'0x{status:02X}',  # Log status as hex value
+                        'blockAddr': blockAddr,
+                        'success': True
+                    })
 
     def MFRC522_DumpClassic1K(self, key, uid):
         for i in range(64):
