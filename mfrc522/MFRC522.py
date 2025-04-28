@@ -196,6 +196,12 @@ class MFRC522:
         lastBits = None
         n = 0
 
+        # Log command as hex value
+        self.logger.debug({
+            'action': 'MFRC522_ToCard_start',
+            'command': f'0x{command:02X}'  # Log command as hex value
+        })
+
         if command == self.PCD_AUTHENT:
             irqEn = 0x12
             waitIRq = 0x10
@@ -251,10 +257,24 @@ class MFRC522:
             else:
                 status = self.MI_ERR
 
+        # Log status and command as hex values
+        self.logger.debug({
+            'action': 'MFRC522_ToCard_complete',
+            'command': f'0x{command:02X}',  # Log command as hex value
+            'status': f'0x{status:02X}',    # Log status as hex value
+            'backLen': backLen
+        })
+
         return (status, backData, backLen)
 
     def MFRC522_Request(self, reqMode):
         TagType = []
+
+        # Log reqMode as hex value
+        self.logger.debug({
+            'action': 'MFRC522_Request_start',
+            'reqMode': f'0x{reqMode:02X}'  # Log reqMode as hex value
+        })
 
         self.Write_MFRC522(self.BitFramingReg, 0x07)
 
@@ -265,11 +285,24 @@ class MFRC522:
         if ((status != self.MI_OK) | (backBits != 0x10)):
             status = self.MI_ERR
 
+        # Log status and reqMode as hex values
+        self.logger.debug({
+            'action': 'MFRC522_Request_complete',
+            'reqMode': f'0x{reqMode:02X}',  # Log reqMode as hex value
+            'status': f'0x{status:02X}'     # Log status as hex value
+        })
+
         return (status, backBits)
 
     def MFRC522_Anticoll(self):
         serNumCheck = 0
         serNum = []
+
+        # Log start of anticoll
+        self.logger.debug({
+            'action': 'MFRC522_Anticoll_start',
+            'command': f'0x{self.PCD_TRANSCEIVE:02X}'  # Log command as hex value
+        })
 
         self.Write_MFRC522(self.BitFramingReg, 0x00)
 
@@ -288,6 +321,12 @@ class MFRC522:
                     status = self.MI_ERR
             else:
                 status = self.MI_ERR
+
+        # Log status as hex value
+        self.logger.debug({
+            'action': 'MFRC522_Anticoll_complete',
+            'status': f'0x{status:02X}'  # Log status as hex value
+        })
 
         return (status, backData)
 
@@ -315,6 +354,13 @@ class MFRC522:
         buf.append(self.PICC_SElECTTAG)
         buf.append(0x70)
 
+        # Log start of select tag
+        self.logger.debug({
+            'action': 'MFRC522_SelectTag_start',
+            'command': f'0x{self.PCD_TRANSCEIVE:02X}',  # Log command as hex value
+            'select_tag': f'0x{self.PICC_SElECTTAG:02X}'  # Log select tag as hex value
+        })
+
         for i in range(5):
             buf.append(serNum[i])
 
@@ -324,14 +370,31 @@ class MFRC522:
         (status, backData, backLen) = self.MFRC522_ToCard(self.PCD_TRANSCEIVE,
                                                           buf)
 
+        # Log status as hex value
         if (status == self.MI_OK) and (backLen == 0x18):
-            self.logger.debug("Size: " + str(backData[0]))
+            self.logger.debug({
+                'action': 'MFRC522_SelectTag_complete',
+                'status': f'0x{status:02X}',  # Log status as hex value
+                'size': backData[0]
+            })
             return status, backData[0]
         else:
+            self.logger.debug({
+                'action': 'MFRC522_SelectTag_failed',
+                'status': f'0x{status:02X}'  # Log status as hex value
+            })
             return status, None
 
     def MFRC522_Auth(self, authMode, BlockAddr, Sectorkey, serNum):
         buff = []
+
+        # Log start of auth with authMode as hex value
+        self.logger.debug({
+            'action': 'MFRC522_Auth_start',
+            'authMode': f'0x{authMode:02X}',  # Log authMode as hex value
+            'blockAddr': BlockAddr,
+            'command': f'0x{self.PCD_AUTHENT:02X}'  # Log command as hex value
+        })
 
         # First byte should be the authMode (A or B)
         buff.append(authMode)
@@ -353,10 +416,24 @@ class MFRC522:
 
         # Check if an error occurred
         if not (status == self.MI_OK):
-            self.logger.error("AUTH ERROR!!")
+            self.logger.error({
+                'error': "AUTH ERROR!!",
+                'status': f'0x{status:02X}'  # Log status as hex value
+            })
 
         if not (self.Read_MFRC522(self.Status2Reg) & 0x08) != 0:
-            self.logger.error("AUTH ERROR(status2reg & 0x08) != 0")
+            status2reg = self.Read_MFRC522(self.Status2Reg)
+            self.logger.error({
+                'error': "AUTH ERROR(status2reg & 0x08) != 0",
+                'status': f'0x{status:02X}',  # Log status as hex value
+                'status2reg': f'0x{status2reg:02X}'  # Log status2reg as hex value
+            })
+
+        # Log completion with status as hex value
+        self.logger.debug({
+            'action': 'MFRC522_Auth_complete',
+            'status': f'0x{status:02X}'  # Log status as hex value
+        })
 
         # Return the status
         return status
@@ -371,13 +448,37 @@ class MFRC522:
         pOut = self.CalulateCRC(recvData)
         recvData.append(pOut[0])
         recvData.append(pOut[1])
+        
+        # Log start of read operation
+        self.logger.debug({
+            'action': 'MFRC522_Read_start',
+            'blockAddr': blockAddr,
+            'command': f'0x{self.PCD_TRANSCEIVE:02X}'  # Log command as hex value
+        })
+        
         (status, backData, backLen) = self.MFRC522_ToCard(self.PCD_TRANSCEIVE,
                                                           recvData)
         if not (status == self.MI_OK):
-            self.logger.error("Error while reading!")
+            self.logger.error({
+                'error': "Error while reading!",
+                'status': f'0x{status:02X}',  # Log status as hex value
+                'blockAddr': blockAddr
+            })
 
+        # Log completion with status as hex value
+        self.logger.debug({
+            'action': 'MFRC522_Read_complete',
+            'status': f'0x{status:02X}',  # Log status as hex value
+            'blockAddr': blockAddr,
+            'success': status == self.MI_OK
+        })
+        
         if len(backData) == 16:
-            self.logger.debug("Sector " + str(blockAddr) + " " + str(backData))
+            self.logger.debug({
+                'action': 'MFRC522_Read_data',
+                'blockAddr': blockAddr,
+                'data': str(backData)
+            })
             return backData
         else:
             return None
@@ -386,6 +487,15 @@ class MFRC522:
         buff = []
         buff.append(self.PICC_WRITE)
         buff.append(blockAddr)
+        
+        # Log start of write operation
+        self.logger.debug({
+            'action': 'MFRC522_Write_start',
+            'blockAddr': blockAddr,
+            'command': f'0x{self.PCD_TRANSCEIVE:02X}',  # Log command as hex value
+            'write_command': f'0x{self.PICC_WRITE:02X}'  # Log write command as hex value
+        })
+        
         crc = self.CalulateCRC(buff)
         buff.append(crc[0])
         buff.append(crc[1])
@@ -394,9 +504,20 @@ class MFRC522:
         if not (status == self.MI_OK) or not (backLen == 4) or not (
                 (backData[0] & 0x0F) == 0x0A):
             status = self.MI_ERR
+            self.logger.debug({
+                'action': 'MFRC522_Write_first_phase_failed',
+                'status': f'0x{status:02X}',  # Log status as hex value
+                'backLen': backLen,
+                'backData': str(backData) if backData else "None"
+            })
 
-        self.logger.debug(
-            "%s backdata &0x0F == 0x0A %s" % (backLen, backData[0] & 0x0F))
+        self.logger.debug({
+            'action': 'MFRC522_Write_first_phase',
+            'backLen': backLen,
+            'backData_check': f'0x{backData[0] & 0x0F:02X}',  # Log as hex value
+            'status': f'0x{status:02X}'  # Log status as hex value
+        })
+        
         if status == self.MI_OK:
             buf = []
             for i in range(16):
@@ -409,9 +530,19 @@ class MFRC522:
                 self.PCD_TRANSCEIVE, buf)
             if not (status == self.MI_OK) or not (backLen == 4) or not (
                     (backData[0] & 0x0F) == 0x0A):
-                self.logger.error("Error while writing")
+                self.logger.error({
+                    'error': "Error while writing",
+                    'status': f'0x{status:02X}',  # Log status as hex value
+                    'backLen': backLen,
+                    'backData': str(backData) if backData else "None"
+                })
             if status == self.MI_OK:
-                self.logger.debug("Data written")
+                self.logger.debug({
+                    'action': 'MFRC522_Write_complete',
+                    'status': f'0x{status:02X}',  # Log status as hex value
+                    'blockAddr': blockAddr,
+                    'success': True
+                })
 
     def MFRC522_DumpClassic1K(self, key, uid):
         for i in range(64):
@@ -420,7 +551,11 @@ class MFRC522:
             if status == self.MI_OK:
                 self.MFRC522_Read(i)
             else:
-                self.logger.error("Authentication error")
+                self.logger.error({
+                    'error': "Authentication error",
+                    'status': f'0x{status:02X}',  # Log status as hex value
+                    'block': i
+                })
 
     def MFRC522_Init(self):
         self.MFRC522_Reset()

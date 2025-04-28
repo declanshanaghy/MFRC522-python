@@ -16,7 +16,7 @@ class SimpleMFRC522:
     _mfrc522 = None
     _key = None
 
-    def __init__(self, key=None, log_verbose=False, pin_mode=GPIO.BOARD):
+    def __init__(self, key=None, log_verbose=True, pin_mode=GPIO.BOARD):
         self._log = logging.getLogger(self.__class__.__name__)
         self._log_verbose = log_verbose
         if log_verbose:
@@ -38,12 +38,21 @@ class SimpleMFRC522:
         return id, tries
 
     def read_id_no_block(self):
-        (status, TagType) = self._mfrc522.MFRC522_Request(
-            self._mfrc522.PICC_REQIDL)
+        reqMode = self._mfrc522.PICC_REQIDL
+        (status, TagType) = self._mfrc522.MFRC522_Request(reqMode)
         if status != self._mfrc522.MI_OK:
+            self._log.error({
+                'action': 'read_id_no_block_request_failed',
+                'reqMode': f'0x{reqMode:02X}',  # Log reqMode as hex value
+                'status': f'0x{status:02X}'     # Log status as hex value
+            })
             return None
         (status, uid) = self._mfrc522.MFRC522_Anticoll()
         if status != self._mfrc522.MI_OK:
+            self._log.error({
+                'action': 'read_id_no_block_anticoll_failed',
+                'status': f'0x{status:02X}'     # Log status as hex value
+            })
             return None
         return self.uid_to_num(uid)
 
@@ -69,7 +78,7 @@ class SimpleMFRC522:
             end = time.time()
             self._log.error({
                 'error': error,
-                'status': status,
+                'status': f'0x{status:02X}',  # Log status as hex value
                 'start': f'{start:.5f}',
                 'end': f'{end:.5f}',
                 'duration': f'{end - start:.5f}',
@@ -77,12 +86,22 @@ class SimpleMFRC522:
 
     def read_no_block(self, trailer=11, blocks=(8, 9, 10)):
         start = time.time()
-        status, _ = self._mfrc522.MFRC522_Request(
-            self._mfrc522.PICC_REQIDL)
+        reqMode = self._mfrc522.PICC_REQIDL
+        status, _ = self._mfrc522.MFRC522_Request(reqMode)
         if status != self._mfrc522.MI_OK:
             self.log_error_with_time('MFRC522_Request', status, start)
+            self._log.debug({
+                'action': 'MFRC522_Request',
+                'reqMode': f'0x{reqMode:02X}',  # Log reqMode as hex value
+                'status': f'0x{status:02X}'     # Log status as hex value
+            })
             return None, None
         self.log_time('MFRC522_Request', start)
+        self._log.debug({
+            'action': 'MFRC522_Request_Success',
+            'reqMode': f'0x{reqMode:02X}',      # Log reqMode as hex value
+            'status': f'0x{status:02X}'         # Log status as hex value
+        })
 
         start = time.time()
         status, uid = self._mfrc522.MFRC522_Anticoll()
@@ -99,12 +118,23 @@ class SimpleMFRC522:
         self.log_time('MFRC522_SelectTag', start)
 
         start = time.time()
-        status = self._mfrc522.MFRC522_Auth(self._mfrc522.PICC_AUTHENT1A,
-                                            trailer, self._key, uid)
+        command = self._mfrc522.PICC_AUTHENT1A
+        status = self._mfrc522.MFRC522_Auth(command,
+                                           trailer, self._key, uid)
         if status != self._mfrc522.MI_OK:
             self.log_error_with_time('MFRC522_Auth', status, start)
+            self._log.debug({
+                'action': 'MFRC522_Auth_Failed',
+                'command': f'0x{command:02X}',  # Log command as hex value
+                'status': f'0x{status:02X}'     # Log status as hex value
+            })
             return None, None
         self.log_time('MFRC522_Auth', start)
+        self._log.debug({
+            'action': 'MFRC522_Auth_Success',
+            'command': f'0x{command:02X}',      # Log command as hex value
+            'status': f'0x{status:02X}'         # Log status as hex value
+        })
 
         data = []
         text_read = ''
@@ -136,17 +166,32 @@ class SimpleMFRC522:
         return id, text_out, tries
 
     def write_no_block(self, text, trailer=11, blocks=(8, 9, 10)):
-        (status, TagType) = self._mfrc522.MFRC522_Request(
-            self._mfrc522.PICC_REQIDL)
+        reqMode = self._mfrc522.PICC_REQIDL
+        (status, TagType) = self._mfrc522.MFRC522_Request(reqMode)
         if status != self._mfrc522.MI_OK:
+            self._log.debug({
+                'action': 'write_no_block_request_failed',
+                'reqMode': f'0x{reqMode:02X}',  # Log reqMode as hex value
+                'status': f'0x{status:02X}'     # Log status as hex value
+            })
             return None, None
         (status, uid) = self._mfrc522.MFRC522_Anticoll()
         if status != self._mfrc522.MI_OK:
+            self._log.debug({
+                'action': 'write_no_block_anticoll_failed',
+                'status': f'0x{status:02X}'     # Log status as hex value
+            })
             return None, None
         id = self.uid_to_num(uid)
         self._mfrc522.MFRC522_SelectTag(uid)
+        command = self._mfrc522.PICC_AUTHENT1A
         status = self._mfrc522.MFRC522_Auth(
-            self._mfrc522.PICC_AUTHENT1A, trailer, self._key, uid)
+            command, trailer, self._key, uid)
+        self._log.debug({
+            'action': 'write_no_block_auth',
+            'command': f'0x{command:02X}',      # Log command as hex value
+            'status': f'0x{status:02X}'         # Log status as hex value
+        })
         self._mfrc522.MFRC522_Read(trailer)
         if status == self._mfrc522.MI_OK:
             data = bytearray()
