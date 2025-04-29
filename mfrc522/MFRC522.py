@@ -133,7 +133,7 @@ class MFRC522:
         # The log_verbose flag will be used by individual log statements
         self.log_verbose = log_verbose
 
-        self.logger.info('Setting up SPI')
+        self.logger.debug('Setting up SPI')
         self.spi = spidev.SpiDev()
         self.spi.open(bus, device)
         self.spi.max_speed_hz = spd
@@ -150,11 +150,11 @@ class MFRC522:
             else:
                 pin_rst = 22
 
-        self.logger.info('Setting up RST')
+        self.logger.debug('Setting up RST')
         GPIO.setup(pin_rst, GPIO.OUT)
         GPIO.output(pin_rst, 1)
 
-        self.logger.info('Setting up MFRC522')
+        self.logger.debug('Setting up MFRC522')
         self.MFRC522_Init()
 
     def MFRC522_Reset(self):

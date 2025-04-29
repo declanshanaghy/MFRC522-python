@@ -40,7 +40,8 @@ class SimpleMFRC522:
         reqMode = self._mfrc522.PICC_REQIDL
         (status, TagType) = self._mfrc522.MFRC522_Request(reqMode)
         if status != self._mfrc522.MI_OK:
-            self._log.error({
+            # This error indicates no card present
+            self._log.debug({
                 'action': 'read_id_no_block_request_failed',
                 'reqMode': f'0x{reqMode:02X}',  # Log reqMode as hex value
                 'status': f'0x{status:02X}'     # Log status as hex value
