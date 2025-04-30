@@ -387,7 +387,7 @@ class MFRC522:
                 })
             return status, backData[0]
         else:
-            self.logger.error({
+            self.logger.debug({
                 'action': 'MFRC522_SelectTag_failed',
                 'status': f'0x{status:02X}'  # Log status as hex value
             })

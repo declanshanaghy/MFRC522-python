@@ -11,22 +11,18 @@ import sys
 class SimpleMFRC522:
     DEFAULT_KEY = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
 
-    _log_verbose = None
     _log = None
     _mfrc522 = None
     _key = None
 
-    def __init__(self, key=None, log_verbose=True, pin_mode=GPIO.BOARD):
+    def __init__(self, key=None, pin_mode=GPIO.BOARD):
         self._log = logging.getLogger(self.__class__.__name__)
-        self._log_verbose = log_verbose
-        # Don't change the logger's level based on log_verbose
-        # This ensures that ERROR messages are always logged at ERROR level
-        # Instead, we'll use log_verbose to determine whether to log DEBUG messages
 
         if key is None:
             key = SimpleMFRC522.DEFAULT_KEY
         self._key = key
-        self._mfrc522 = MFRC522(log_verbose=log_verbose, pin_mode=pin_mode)
+        self._mfrc522 = MFRC522(log_verbose=self._log.isEnabledFor(logging.DEBUG), 
+                                pin_mode=pin_mode)
 
     def read_id(self, attempts=sys.maxsize):
         id = self.read_id_no_block()
@@ -65,7 +61,7 @@ class SimpleMFRC522:
         return id, text, tries
 
     def log_time(self, action, start):
-        if self._log_verbose:
+        if self._log.isEnabledFor(logging.DEBUG):
             end = time.time()
             self._log.debug({
                 'action': action,
@@ -75,9 +71,9 @@ class SimpleMFRC522:
             })
 
     def log_error_with_time(self, error, status, start):
-        if self._log_verbose:
+        if self._log.isEnabledFor(logging.DEBUG):
             end = time.time()
-            self._log.error({
+            self._log.debug({
                 'error': error,
                 'status': f'0x{status:02X}',  # Log status as hex value
                 'start': f'{start:.5f}',
@@ -89,17 +85,18 @@ class SimpleMFRC522:
         start = time.time()
         reqMode = self._mfrc522.PICC_REQIDL
         status, _ = self._mfrc522.MFRC522_Request(reqMode)
+        self.log_time('MFRC522_Request', start)
         if status != self._mfrc522.MI_OK:
-            self.log_error_with_time('MFRC522_Request', status, start)
-            if self._log_verbose:
-                self._log.debug({
-                    'action': 'MFRC522_Request',
+            # This error indicates no card present, no need for error logging
+            if self._log.isEnabledFor(logging.DEBUG):
+                self._log.error({
+                    'action': 'MFRC522_Request_failed',
                     'reqMode': f'0x{reqMode:02X}',  # Log reqMode as hex value
                     'status': f'0x{status:02X}'     # Log status as hex value
                 })
             return None, None
-        self.log_time('MFRC522_Request', start)
-        if self._log_verbose:
+        
+        if self._log.isEnabledFor(logging.DEBUG):
             self._log.debug({
                 'action': 'MFRC522_Request_Success',
                 'reqMode': f'0x{reqMode:02X}',      # Log reqMode as hex value
@@ -133,7 +130,7 @@ class SimpleMFRC522:
             })
             return None, None
         self.log_time('MFRC522_Auth', start)
-        if self._log_verbose:
+        if self._log.isEnabledFor(logging.DEBUG):
             self._log.debug({
                 'action': 'MFRC522_Auth_Success',
                 'command': f'0x{command:02X}',      # Log command as hex value
@@ -191,7 +188,7 @@ class SimpleMFRC522:
         command = self._mfrc522.PICC_AUTHENT1A
         status = self._mfrc522.MFRC522_Auth(
             command, trailer, self._key, uid)
-        if self._log_verbose:
+        if self._log.isEnabledFor(logging.DEBUG):
             self._log.debug({
                 'action': 'write_no_block_auth',
                 'command': f'0x{command:02X}',      # Log command as hex value
