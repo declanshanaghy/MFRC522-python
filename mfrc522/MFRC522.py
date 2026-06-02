@@ -151,6 +151,7 @@ class MFRC522:
                 pin_rst = 22
 
         self.logger.debug('Setting up RST')
+        GPIO.setwarnings(False)
         GPIO.setup(pin_rst, GPIO.OUT)
         GPIO.output(pin_rst, 1)
 
